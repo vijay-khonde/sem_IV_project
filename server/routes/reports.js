@@ -25,14 +25,30 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'chrais_reports',
-    allowedFormats: ['jpg', 'png', 'jpeg']
+import fs from 'fs';
+
+let upload;
+if (process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_KEY !== 'demo') {
+  const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: 'chrais_reports',
+      allowedFormats: ['jpg', 'png', 'jpeg']
+    }
+  });
+  upload = multer({ storage: storage });
+} else {
+  // Fallback to local memory/disk if Cloudinary is not configured
+  const dir = './uploads';
+  if (!fs.existsSync(dir)){
+      fs.mkdirSync(dir);
   }
-});
-const upload = multer({ storage: storage });
+  const storage = multer.diskStorage({
+    destination: function (req, file, cb) { cb(null, 'uploads/') },
+    filename: function (req, file, cb) { cb(null, Date.now() + '-' + file.originalname) }
+  });
+  upload = multer({ storage: storage });
+}
 
 // Helper function to call Hugging Face free Inference API
 async function analyzeThreatAI(description) {
@@ -86,11 +102,56 @@ router.post('/', reportSpamLimiter, upload.single('image'), async (req, res) => 
        }
     }
 
-    let calculatedRiskScore = ((user.trustScore / 100) * 10) + aiRiskModifier;
+    // --- Community Trust Scoring System ---
+    // 1. Base credibility on user's historical trust score
+    let credibilityScore = user.trustScore / 100;
+
+    // 2. Frequency / Spam Check: Has the user submitted too many reports recently?
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentReportsCount = await Report.countDocuments({ 
+      userId: user._id, 
+      createdAt: { $gte: oneHourAgo } 
+    });
+
+    if (recentReportsCount > 3) {
+      // Penalize credibility for rapid-fire reporting (potential spam)
+      credibilityScore -= 0.3; 
+    }
+
+    // 3. Consistency: Check if there are other verified reports nearby (boosts credibility)
+    let nearbyVerifiedReports = 0;
+    try {
+      nearbyVerifiedReports = await Report.countDocuments({
+        status: 'verified',
+        location: {
+          $near: {
+            $geometry: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+            $maxDistance: 2000 // 2km radius
+          }
+        }
+      });
+    } catch (geoErr) {
+      console.log('Geo spatial query failed (index might not be built yet):', geoErr.message);
+    }
+
+    if (nearbyVerifiedReports > 0) {
+      credibilityScore += 0.2; // Corroborated by historical verified activity in the area
+    }
+
+    // Cap credibility
+    credibilityScore = Math.max(0.1, Math.min(credibilityScore, 1.0));
+
+    let calculatedRiskScore = (credibilityScore * 10) + aiRiskModifier;
     
     // Bounds checking
     if(calculatedRiskScore > 10) calculatedRiskScore = 10;
     if(calculatedRiskScore < 0) calculatedRiskScore = 0;
+
+    // 4. Auto-Reject severely untrustworthy reports
+    let initialStatus = 'pending';
+    if (credibilityScore < 0.2 || user.trustScore < 20) {
+       initialStatus = 'rejected'; // Auto-flag as spam/misuse
+    }
 
     const newReport = new Report({
       userId,
@@ -103,8 +164,9 @@ router.post('/', reportSpamLimiter, upload.single('image'), async (req, res) => 
       },
       address,
       imageUrl,
-      credibility: user.trustScore / 100,
-      riskScore: calculatedRiskScore
+      credibility: credibilityScore,
+      riskScore: calculatedRiskScore,
+      status: initialStatus
     });
 
     user.reportsSubmitted += 1;

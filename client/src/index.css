@@ -8,13 +8,13 @@
 
 @layer base {
   :root {
-    --bg-base: #f3f4f6;
-    --bg-surface: #ffffff;
-    --text-base: #111827;
-    --text-muted: #6b7280;
-    --border-color: #e5e7eb;
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.4);
+    --bg-base: #ffffff;
+    --bg-surface: #f8fafc;
+    --text-base: #0f172a;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(226, 232, 240, 0.8);
     --neon-highlight: transparent;
   }
 
