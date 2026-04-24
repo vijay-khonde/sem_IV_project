@@ -3,189 +3,228 @@ import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import rateLimit from 'express-rate-limit';
+import fs from 'fs';
 import Report from '../models/Report.js';
 import User from '../models/User.js';
+import { protect, isAuthority } from '../middleware/auth.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
 const router = express.Router();
 
-// Spam Detection: Rate Limiter Middleware
+// ── Rate limiter ──────────────────────────────────────────────────────────────
 const reportSpamLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 5, // Limit each IP to 5 reports per 15 minutes
-  message: { message: "Spam Detection Triggered: Too many reports submitted from this IP. Please wait 15 minutes." },
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many reports submitted. Please wait 15 minutes before trying again.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
+// ── File Upload (Cloudinary or local fallback) ────────────────────────────────
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-import fs from 'fs';
-
 let upload;
 if (process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_KEY !== 'demo') {
   const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-      folder: 'chrais_reports',
-      allowedFormats: ['jpg', 'png', 'jpeg']
-    }
+    cloudinary,
+    params: { folder: 'chrais_reports', allowedFormats: ['jpg', 'png', 'jpeg'] }
   });
-  upload = multer({ storage: storage });
+  upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 } else {
-  // Fallback to local memory/disk if Cloudinary is not configured
   const dir = './uploads';
-  if (!fs.existsSync(dir)){
-      fs.mkdirSync(dir);
-  }
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir);
   const storage = multer.diskStorage({
-    destination: function (req, file, cb) { cb(null, 'uploads/') },
-    filename: function (req, file, cb) { cb(null, Date.now() + '-' + file.originalname) }
+    destination: (req, file, cb) => cb(null, 'uploads/'),
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
   });
-  upload = multer({ storage: storage });
+  upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 }
 
-// Helper function to call Hugging Face free Inference API
-async function analyzeThreatAI(description) {
+// ── Rule-Based Risk Scoring ───────────────────────────────────────────────────
+/**
+ * Calculates a risk score 0–10 using:
+ * - User trust score
+ * - Report frequency (spam detection)
+ * - Nearby verified corroboration
+ * - Category weight
+ * - Severity tags
+ */
+async function calculateRiskScore(user, category, severityTags = [], longitude, latitude) {
+  // 1. Base from user trust
+  let credibility = user.trustScore / 100;
+
+  // 2. Spam penalty: >3 reports in the last hour
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const recentCount = await Report.countDocuments({ userId: user._id, createdAt: { $gte: oneHourAgo } });
+  if (recentCount > 3) credibility -= 0.3;
+
+  // 3. Location corroboration boost
   try {
-    const response = await fetch(
-      "https://api-inference.huggingface.co/models/facebook/bart-large-mnli",
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-        body: JSON.stringify({
-          inputs: description,
-          parameters: { candidate_labels: ["critical emergency", "high risk threat", "suspicious activity", "benign", "false alarm"] },
-        }),
+    const nearbyVerified = await Report.countDocuments({
+      status: 'verified',
+      location: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+          $maxDistance: 2000
+        }
       }
-    );
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error("HF API Error:", error);
-    return null;
-  }
+    });
+    if (nearbyVerified > 0) credibility += 0.2;
+    if (nearbyVerified > 5) credibility += 0.1; // hotspot bonus
+  } catch { /* geo index may not exist yet */ }
+
+  credibility = Math.max(0.1, Math.min(credibility, 1.0));
+
+  // 4. Category weight
+  const categoryWeight = {
+    substance_use: 3,
+    drug_paraphernalia: 2.5,
+    suspicious_activity: 2,
+    loitering: 1.5,
+    other: 1
+  };
+  const catScore = categoryWeight[category] || 1;
+
+  // 5. Severity tag multiplier
+  const severityBonus = (severityTags || []).length * 0.4;
+
+  let riskScore = (credibility * 5) + catScore + severityBonus;
+  return {
+    credibility,
+    riskScore: Math.min(10, Math.max(0, parseFloat(riskScore.toFixed(2)))),
+    autoReject: credibility < 0.2 || user.trustScore < 20
+  };
 }
 
-// Create a report with Spam Limiter
-router.post('/', reportSpamLimiter, upload.single('image'), async (req, res) => {
+// ── POST /api/reports — Submit a report ──────────────────────────────────────
+router.post('/', protect, reportSpamLimiter, upload.single('image'), async (req, res) => {
   try {
-    const { userId, title, description, category, longitude, latitude, address } = req.body;
+    const { title, description, category, longitude, latitude, address, isAnonymous, severityTags } = req.body;
     const imageUrl = req.file ? req.file.path : null;
 
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    let aiRiskModifier = 0;
-    
-    // Call the free Hugging Face model (Wait asynchronously so it doesn't block the initial saving if it's slow, or wait synchronously if we want it immediately)
-    if (process.env.HUGGINGFACE_API_KEY) {
-       const aiAnalysis = await analyzeThreatAI(title + " . " + description);
-       console.log("AI Analysis Result:", aiAnalysis);
-       
-       if (aiAnalysis && aiAnalysis.labels && aiAnalysis.scores) {
-          const topLabel = aiAnalysis.labels[0];
-          const topScore = aiAnalysis.scores[0];
-          
-          if (topLabel === "critical emergency" && topScore > 0.5) aiRiskModifier += 4;
-          else if (topLabel === "high risk threat" && topScore > 0.4) aiRiskModifier += 2.5;
-          else if (topLabel === "suspicious activity" && topScore > 0.4) aiRiskModifier += 1;
-          else if (topLabel === "false alarm" && topScore > 0.4) aiRiskModifier -= 2;
-       }
+    // Input validation
+    if (!title || !description || !category || !longitude || !latitude) {
+      return res.status(400).json({ message: 'title, description, category, and location coordinates are required.' });
     }
+    if (title.trim().length < 5) return res.status(400).json({ message: 'Title must be at least 5 characters.' });
+    if (description.trim().length < 20) return res.status(400).json({ message: 'Description must be at least 20 characters.' });
 
-    // --- Community Trust Scoring System ---
-    // 1. Base credibility on user's historical trust score
-    let credibilityScore = user.trustScore / 100;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
 
-    // 2. Frequency / Spam Check: Has the user submitted too many reports recently?
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const recentReportsCount = await Report.countDocuments({ 
-      userId: user._id, 
-      createdAt: { $gte: oneHourAgo } 
-    });
-
-    if (recentReportsCount > 3) {
-      // Penalize credibility for rapid-fire reporting (potential spam)
-      credibilityScore -= 0.3; 
-    }
-
-    // 3. Consistency: Check if there are other verified reports nearby (boosts credibility)
-    let nearbyVerifiedReports = 0;
+    // Parse severityTags (may arrive as JSON string from FormData)
+    let parsedTags = [];
     try {
-      nearbyVerifiedReports = await Report.countDocuments({
-        status: 'verified',
-        location: {
-          $near: {
-            $geometry: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
-            $maxDistance: 2000 // 2km radius
-          }
-        }
-      });
-    } catch (geoErr) {
-      console.log('Geo spatial query failed (index might not be built yet):', geoErr.message);
-    }
+      parsedTags = severityTags ? JSON.parse(severityTags) : [];
+    } catch { parsedTags = []; }
 
-    if (nearbyVerifiedReports > 0) {
-      credibilityScore += 0.2; // Corroborated by historical verified activity in the area
-    }
-
-    // Cap credibility
-    credibilityScore = Math.max(0.1, Math.min(credibilityScore, 1.0));
-
-    let calculatedRiskScore = (credibilityScore * 10) + aiRiskModifier;
-    
-    // Bounds checking
-    if(calculatedRiskScore > 10) calculatedRiskScore = 10;
-    if(calculatedRiskScore < 0) calculatedRiskScore = 0;
-
-    // 4. Auto-Reject severely untrustworthy reports
-    let initialStatus = 'pending';
-    if (credibilityScore < 0.2 || user.trustScore < 20) {
-       initialStatus = 'rejected'; // Auto-flag as spam/misuse
-    }
+    const { credibility, riskScore, autoReject } = await calculateRiskScore(
+      user, category, parsedTags, longitude, latitude
+    );
 
     const newReport = new Report({
-      userId,
-      title,
-      description,
+      userId: user._id,
+      title: title.trim(),
+      description: description.trim(),
       category,
-      location: {
-        type: 'Point',
-        coordinates: [parseFloat(longitude), parseFloat(latitude)]
-      },
-      address,
+      severityTags: parsedTags,
+      location: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+      address: address?.trim(),
       imageUrl,
-      credibility: credibilityScore,
-      riskScore: calculatedRiskScore,
-      status: initialStatus
+      isAnonymous: isAnonymous === 'true' || isAnonymous === true,
+      credibility,
+      riskScore,
+      status: autoReject ? 'rejected' : 'pending'
     });
 
     user.reportsSubmitted += 1;
     await user.save();
-    
     await newReport.save();
+
     res.status(201).json(newReport);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating report', error: error.message });
+    res.status(500).json({ message: 'Error creating report.', error: error.message });
   }
 });
 
-// Get all reports (can be filtered)
+// ── GET /api/reports — All reports (public for map view) ─────────────────────
 router.get('/', async (req, res) => {
   try {
-    const reports = await Report.find().populate('userId', 'name trustScore');
+    const { status, category, limit = 200 } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+
+    const reports = await Report.find(filter)
+      .populate({
+        path: 'userId',
+        select: 'name trustScore role',
+        // If anonymous, we'll mask on the fly below
+      })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    // Mask reporter identity for anonymous reports
+    const sanitized = reports.map(r => {
+      const obj = r.toObject();
+      if (obj.isAnonymous) {
+        obj.userId = { name: 'Anonymous', trustScore: null, role: null };
+      }
+      return obj;
+    });
+
+    res.json(sanitized);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+});
+
+// ── GET /api/reports/my — Current user's own reports ─────────────────────────
+router.get('/my', protect, async (req, res) => {
+  try {
+    const reports = await Report.find({ userId: req.user.id }).sort({ createdAt: -1 });
     res.json(reports);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+});
+
+// ── GET /api/reports/:id — Single report detail ───────────────────────────────
+router.get('/:id', async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id).populate('userId', 'name role trustScore');
+    if (!report) return res.status(404).json({ message: 'Report not found.' });
+    const obj = report.toObject();
+    if (obj.isAnonymous) obj.userId = { name: 'Anonymous' };
+    res.json(obj);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+});
+
+// ── PUT /api/reports/:id/upvote — Upvote a report ────────────────────────────
+router.put('/:id/upvote', protect, async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) return res.status(404).json({ message: 'Report not found.' });
+
+    const alreadyUpvoted = report.upvotes.includes(req.user.id);
+    if (alreadyUpvoted) {
+      report.upvotes = report.upvotes.filter(id => id.toString() !== req.user.id);
+    } else {
+      report.upvotes.push(req.user.id);
+      // Upvotes from the community also boost risk score slightly
+      report.riskScore = Math.min(10, report.riskScore + 0.1);
+    }
+    await report.save();
+    res.json({ upvotes: report.upvotes.length, upvoted: !alreadyUpvoted });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
   }
 });
 

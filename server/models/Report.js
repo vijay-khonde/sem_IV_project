@@ -8,17 +8,27 @@ const reportSchema = new mongoose.Schema({
   },
   title: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    minlength: 5,
+    maxlength: 150
   },
   description: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    minlength: 20,
+    maxlength: 2000
   },
   category: {
     type: String,
-    enum: ['suspicious_activity', 'substance_use', 'drug_paraphernalia', 'loitering', 'other'],
+    enum: ['drug_abuse', 'alcohol_abuse', 'suspicious_activity'],
     required: true
   },
+  severityTags: [{
+    type: String,
+    enum: ['weapons_involved', 'minors_involved', 'group_activity', 'repeat_offense', 'overdose_risk']
+  }],
   location: {
     type: {
       type: String,
@@ -31,9 +41,16 @@ const reportSchema = new mongoose.Schema({
       required: true
     }
   },
-  address: String,
+  address: {
+    type: String,
+    trim: true
+  },
   imageUrl: {
     type: String
+  },
+  isAnonymous: {
+    type: Boolean,
+    default: false
   },
   status: {
     type: String,
@@ -42,18 +59,32 @@ const reportSchema = new mongoose.Schema({
   },
   riskScore: {
     type: Number,
-    default: 0
+    default: 0,
+    min: 0,
+    max: 10
+  },
+  credibility: {
+    type: Number,
+    default: 1,
+    min: 0,
+    max: 1
   },
   upvotes: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
-  credibility: {
-    type: Number,
-    default: 1
+  resolvedAt: {
+    type: Date
+  },
+  adminNote: {
+    type: String,
+    trim: true
   }
 }, { timestamps: true });
 
 reportSchema.index({ location: '2dsphere' });
+reportSchema.index({ status: 1 });
+reportSchema.index({ createdAt: -1 });
+reportSchema.index({ riskScore: -1 });
 
 export default mongoose.model('Report', reportSchema);
