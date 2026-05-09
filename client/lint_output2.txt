@@ -1,0 +1,108 @@
+
+> client@0.0.0 lint
+> eslint .
+
+
+C:\sem4project\client\src\components\InterventionManager.jsx
+   3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      no-unused-vars
+  15:10  error  'loading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            no-unused-vars
+  24:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  22 |   useEffect(() => {
+  23 |     if (activeReport) {
+> 24 |       setFormData({
+     |       ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  25 |         title: `Protocol: ${activeReport.title}`,
+  26 |         type: '',
+  27 |         longitude: activeReport.location?.coordinates[0] || 73.8567,  react-hooks/set-state-in-effect
+  43:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  41 |   };
+  42 |
+> 43 |   useEffect(() => { fetchInterventions(); }, []);
+     |                     ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  44 |
+  45 |   const handleAddressSearch = async () => {
+  46 |     if (!formData.address?.trim()) return;                                        react-hooks/set-state-in-effect
+  66:14  error  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    no-unused-vars
+  73:14  error  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    no-unused-vars
+
+C:\sem4project\client\src\context\AuthContext.jsx
+  41:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  39 |
+  40 |   useEffect(() => {
+> 41 |     loadUser();
+     |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  42 |   }, [loadUser]);
+  43 |
+  44 |   const login = async (email, password) => {  react-hooks/set-state-in-effect
+  73:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-refresh/only-export-components
+
+C:\sem4project\client\src\context\ThemeContext.jsx
+  13:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  11 |     
+  12 |     if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+> 13 |       setIsDarkMode(true);
+     |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  14 |       document.documentElement.classList.add('dark');
+  15 |     }
+  16 |   }, []);  react-hooks/set-state-in-effect
+  39:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     react-refresh/only-export-components
+
+C:\sem4project\client\src\pages\Home.jsx
+  4:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\sem4project\client\src\pages\Login.jsx
+  4:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\sem4project\client\src\pages\MapView.jsx
+   6:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            no-unused-vars
+  69:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  67 |     if (filters.category) out = out.filter(r => r.category === filters.category);
+  68 |     if (filters.status) out = out.filter(r => r.status === filters.status);
+> 69 |     setFiltered(out);
+     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  70 |   }, [filters, reports]);
+  71 |
+  72 |   const counts = {  react-hooks/set-state-in-effect
+
+C:\sem4project\client\src\pages\ReportIncident.jsx
+  23:11  error  'user' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+  53:9   error  'toggleTag' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  76:14  error  'err' is defined but never used                                                            no-unused-vars
+
+✖ 17 problems (17 errors, 0 warnings)
+

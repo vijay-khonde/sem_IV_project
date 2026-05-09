@@ -1,129 +1,143 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, MapPin, TrendingUp, AlertTriangle, Eye, ShieldCheck } from 'lucide-react';
+import { Shield, MapPin, TrendingUp, AlertTriangle, Eye, ShieldCheck, HeartPulse, Search } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 
+const FeatureCard = ({ icon, title, desc }) => (
+  <div className="p-8 bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+    <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-6">
+      {icon}
+    </div>
+    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{title}</h3>
+    <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{desc}</p>
+  </div>
+);
+
 const Home = () => {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { staggerChildren: 0.2 }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
-  };
-
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Soft Background Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-300 rounded-full mix-blend-multiply filter blur-[150px] opacity-30 animate-blob dark:bg-blue-900 dark:opacity-20 dark:mix-blend-screen"></div>
-      <div className="absolute top-[20%] right-[-10%] w-[500px] h-[500px] bg-teal-300 rounded-full mix-blend-multiply filter blur-[150px] opacity-30 animate-blob animation-delay-2000 dark:bg-teal-900 dark:opacity-20 dark:mix-blend-screen"></div>
-      <div className="absolute bottom-[-10%] left-[20%] w-[500px] h-[500px] bg-purple-300 rounded-full mix-blend-multiply filter blur-[150px] opacity-30 animate-blob animation-delay-4000 dark:bg-purple-900 dark:opacity-20 dark:mix-blend-screen"></div>
-
+    <div className="bg-white dark:bg-slate-900">
       {/* Hero Section */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center lg:pt-32">
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="mx-auto max-w-3xl"
-        >
-          <motion.div variants={itemVariants} className="inline-flex items-center px-4 py-2 rounded-full bg-white/60 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 mb-8 shadow-sm">
-            <span className="flex h-2 w-2 rounded-full bg-teal-500 mr-2 animate-pulse"></span>
-            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Live AI Threat Detection Active</span>
-          </motion.div>
-          
-          <motion.h1 variants={itemVariants} className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8">
-            <span className="block text-gray-900 dark:text-gray-100 mb-2">CareNet</span>
-            <span className="block text-3xl md:text-4xl font-medium bg-gradient-to-r from-teal-600 via-blue-600 to-purple-600 text-transparent bg-clip-text mt-2">
-              Smart Community Monitoring for Early Risk Detection and Prevention
-            </span>
-          </motion.h1>
-          
-          <motion.p variants={itemVariants} className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto font-light">
-            Empowering communities to anonymously report and track local substance abuse risks. 
-            Detect issues early, view insights, and connect with help resources to keep our neighborhoods safe.
-          </motion.p>
-          
-          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center items-center gap-4">
-            <Link to="/report" className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-teal-600 hover:bg-teal-700 text-white font-semibold text-lg shadow-md transition-all duration-300 hover:scale-105 flex items-center justify-center">
-              <AlertTriangle className="mr-2 w-5 h-5" /> Report Incident
-            </Link>
-            <Link to="/map" className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 font-semibold text-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-all duration-300 hover:scale-105 flex items-center justify-center border border-gray-200 dark:border-gray-700 shadow-sm">
-              <MapPin className="mr-2 w-5 h-5 text-blue-500" /> View Heatmap
-            </Link>
-            <Link to="/dashboard" className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 font-semibold text-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-all duration-300 hover:scale-105 flex items-center justify-center shadow-sm">
-              Get Help
-            </Link>
-          </motion.div>
-        </motion.div>
-      </div>
+      <section className="relative pt-16 pb-24 lg:pt-32 lg:pb-32 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center max-w-4xl mx-auto">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider mb-8"
+            >
+              <Shield className="w-3 h-3" /> Community Safety Platform
+            </motion.div>
+            
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-4xl md:text-6xl font-black text-gray-900 dark:text-white tracking-tight mb-6"
+            >
+              Building Safer Neighborhoods <br /> 
+              <span className="text-indigo-600">Through Awareness.</span>
+            </motion.h1>
+            
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-lg text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto"
+            >
+              CareNet is a community-driven platform for detecting and preventing substance abuse risks. 
+              Report anonymously, track local trends, and coordinate interventions to keep our community healthy.
+            </motion.p>
+            
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="flex flex-wrap justify-center gap-4"
+            >
+              <Link to="/report" className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> Report Incident
+              </Link>
+              <Link to="/map" className="px-8 py-4 bg-white dark:bg-slate-800 text-gray-900 dark:text-white font-bold rounded-xl border border-gray-200 dark:border-slate-700 hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-indigo-600" /> Live Risk Map
+              </Link>
+            </motion.div>
+          </div>
+        </div>
+      </section>
 
       {/* Stats Section */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { icon: <ShieldCheck className="w-8 h-8 text-green-500" />, label: 'Verified Reports', value: '1,204+' },
-            { icon: <Eye className="w-8 h-8 text-blue-500" />, label: 'Active Zones Monitored', value: '45' },
-            { icon: <Shield className="w-8 h-8 text-indigo-500" />, label: 'Community Members', value: '5,000+' }
-          ].map((stat, i) => (
-            <motion.div 
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="bg-white/80 dark:bg-slate-800/80 p-6 rounded-2xl flex items-center gap-4 border border-gray-100 dark:border-slate-700 shadow-sm"
-            >
-              <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/50">
-                {stat.icon}
-              </div>
-              <div>
-                <h4 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stat.value}</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* Features Section */}
-      <div className="relative z-10 py-20 bg-gray-50/50 dark:bg-slate-900/50 border-t border-gray-200/50 dark:border-gray-800/50">
+      <section className="bg-gray-50 dark:bg-slate-800/50 py-16 border-y border-gray-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-teal-600 dark:text-teal-400 font-semibold tracking-wide uppercase">Core System Features</h2>
-            <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
-              Ethical, Secure, & Actionable
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { icon: <MapPin />, title: 'Risk Heatmaps', desc: 'Pinpoint and visualize exact locations of substance abuse risks to help authorities deploy early interventions.' },
-              { icon: <Shield />, title: 'Privacy First', desc: 'Secure, anonymous reporting combined with data anonymization techniques to protect community members.' },
-              { icon: <TrendingUp />, title: 'Proactive Action', desc: 'Connects data trends directly to actionable interventions and rehabilitation resources to prevent escalation.' }
-            ].map((feat, i) => (
-              <motion.div 
-                key={i}
-                whileHover={{ y: -5 }}
-                className="p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-slate-700"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-6">
-                  {feat.icon}
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{feat.title}</h3>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  {feat.desc}
-                </p>
-              </motion.div>
+              { label: 'Verified Reports', value: '1,200+' },
+              { label: 'Interventions', value: '85' },
+              { label: 'Communities', value: '450+' },
+              { label: 'Success Rate', value: '92%' }
+            ].map((stat, i) => (
+              <div key={i} className="text-center">
+                <div className="text-3xl font-black text-indigo-600 mb-1">{stat.value}</div>
+                <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">{stat.label}</div>
+              </div>
             ))}
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Features Grid */}
+      <section className="py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-4">How It Works</h2>
+            <p className="text-gray-500 dark:text-gray-400 max-w-xl mx-auto">A systematic approach to community monitoring and risk reduction.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard 
+              icon={<Search className="w-6 h-6" />}
+              title="Identify Risks"
+              desc="Community members submit anonymous reports of suspicious activity or substance abuse areas."
+            />
+            <FeatureCard 
+              icon={<TrendingUp className="w-6 h-6" />}
+              title="Analyze Trends"
+              desc="Our system analyzes reports to identify high-risk hotspots and calculate risk scores in real-time."
+            />
+            <FeatureCard 
+              icon={<ShieldCheck className="w-6 h-6" />}
+              title="Take Action"
+              desc="Authorities deploy targeted interventions like patrols or medical outreach based on data."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Resources Section */}
+      <section className="py-24 bg-indigo-600">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
+          <HeartPulse className="w-16 h-16 mx-auto mb-8 opacity-80" />
+          <h2 className="text-4xl font-black mb-6 tracking-tight">Help is Always Available.</h2>
+          <p className="text-indigo-100 mb-12 max-w-2xl mx-auto">If you or someone you know is struggling with substance abuse, please reach out to our network of support providers.</p>
+          <div className="flex justify-center gap-4 flex-wrap">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 p-6 rounded-2xl text-left w-full md:w-auto min-w-[300px]">
+              <p className="text-xs font-bold uppercase tracking-widest opacity-70 mb-2">National Helpline</p>
+              <p className="text-2xl font-black">1800-11-0031</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 p-6 rounded-2xl text-left w-full md:w-auto min-w-[300px]">
+              <p className="text-xs font-bold uppercase tracking-widest opacity-70 mb-2">Support Email</p>
+              <p className="text-2xl font-black">help@carenet.local</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-12 border-t border-gray-200 dark:border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-sm text-gray-500 font-medium">© 2024 CareNet Platform. Secure & Confidential Community Monitoring.</p>
+        </div>
+      </footer>
     </div>
   );
 };

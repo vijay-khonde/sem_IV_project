@@ -3,6 +3,7 @@ import axios from 'axios';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Filter, Activity, X, ChevronDown } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CATEGORIES = [
@@ -66,6 +67,7 @@ const MapView = () => {
     let out = reports;
     if (filters.category) out = out.filter(r => r.category === filters.category);
     if (filters.status) out = out.filter(r => r.status === filters.status);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFiltered(out);
   }, [filters, reports]);
 

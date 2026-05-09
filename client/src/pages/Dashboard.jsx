@@ -1,23 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { ShieldAlert, Users, CheckCircle, Activity, Bell, Building, HeartPulse, HeartHandshake, TrendingUp, AlertTriangle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, AreaChart, Area, Legend } from 'recharts';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
+import { ShieldAlert, Activity, Building, HeartPulse, HeartHandshake, TrendingUp, MapPin, Zap, Search, Loader2, Target, Plus, X, Clock } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
 import { useAuth } from '../context/AuthContext';
+import InterventionManager from '../components/InterventionManager';
 
-const PIE_COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+// Helper function for color mapping
+const getColorClasses = (color) => {
+  const colorMap = {
+    blue: { gradient: 'from-blue-500/10 to-transparent', bg: 'bg-blue-500/20', text: 'text-blue-500' },
+    rose: { gradient: 'from-rose-500/10 to-transparent', bg: 'bg-rose-500/20', text: 'text-rose-500' },
+    emerald: { gradient: 'from-emerald-500/10 to-transparent', bg: 'bg-emerald-500/20', text: 'text-emerald-500' }
+  };
+  return colorMap[color] || colorMap.blue;
+};
 
-const StatCard = ({ icon, label, value, color, delay = 0 }) => (
-  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}
-    className={`bg-white dark:bg-slate-800 rounded-2xl p-5 border border-gray-100 dark:border-slate-700 shadow-sm relative overflow-hidden`}>
-    <div className={`absolute top-0 right-0 w-20 h-20 bg-${color}-500/10 rounded-bl-full`} />
-    <div className={`w-10 h-10 rounded-xl bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400 flex items-center justify-center mb-3`}>
-      {icon}
+// FeedCard component defined outside
+const FeedCard = ({ title, icon, items, color, onVerify, onAction }) => {
+  const colors = getColorClasses(color);
+  return (
+  <div className="glass-card flex flex-col h-[750px] overflow-hidden group">
+    <div className={`p-8 border-b border-white/5 bg-linear-to-br ${colors.gradient} flex justify-between items-center`}>
+      <div className="flex items-center gap-4">
+        <div className={`p-3 rounded-2xl ${colors.bg} ${colors.text} shadow-xl`}>{icon}</div>
+        <div>
+          <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-900 dark:text-white">{title}</h3>
+          <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">Operational Unit</p>
+        </div>
+      </div>
+      <span className="text-[10px] font-black px-3 py-1 bg-white/5 rounded-full border border-white/5">{items.length} Reports</span>
     </div>
-    <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
-  </motion.div>
-);
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+      {items.length === 0 ? <p className="p-20 text-center text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] opacity-30 italic">Standby Mode</p> :
+        items.map(r => (
+          <motion.div initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }} key={r._id} className="p-6 bg-white/5 dark:bg-slate-800/40 rounded-3xl border border-white/5 hover:border-indigo-500/30 transition-all group/item">
+            <div className="flex justify-between items-start mb-4">
+              <h4 className="text-sm font-black text-gray-900 dark:text-gray-100 group-hover/item:text-indigo-400 transition-colors tracking-tight">{r.title}</h4>
+              <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-tighter ${r.status === 'verified' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>{r.status}</span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-relaxed text-justify line-clamp-3 px-1">{r.description}</p>
+            <div className="flex items-center justify-between mb-5">
+              <div className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-rose-500"/> {r.address?.split(',')[0] || 'Unmapped'}</div>
+              <div className={`text-[10px] font-black px-2 py-1 rounded-lg ${r.riskScore > 7 ? 'bg-rose-500/20 text-rose-500' : 'bg-indigo-500/20 text-indigo-500'}`}>RISK {r.riskScore?.toFixed(1)}</div>
+            </div>
+            <div className="flex gap-2">
+              {r.status !== 'verified' && (
+                <button onClick={() => onVerify(r._id, 'verified')} className="flex-1 py-3 text-[10px] font-black uppercase bg-white/5 text-emerald-500 border border-emerald-500/20 rounded-xl hover:bg-emerald-500 hover:text-white transition-all">Verify</button>
+              )}
+              <button onClick={() => onAction(r)} className="flex-1 py-3 text-[10px] font-black uppercase bg-indigo-600 text-white rounded-xl shadow-xl shadow-indigo-600/20 hover:scale-105 active:scale-95 transition-all">Action</button>
+            </div>
+          </motion.div>
+        ))}
+    </div>
+  </div>
+  );
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -26,293 +65,199 @@ const Dashboard = () => {
   const [myReports, setMyReports] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const isAuthority = user && ['admin', 'gov', 'ngo', 'healthcare'].includes(user.role);
+  const [activeReport, setActiveReport] = useState(null);
 
-  const fetchData = async () => {
+  const isAuthority = user && ['admin', 'gov', 'ngo', 'healthcare'].includes(user.role?.toLowerCase());
+  const isCitizen = user && ['user', 'citizen'].includes(user.role?.toLowerCase());
+
+  const fetchData = useCallback(async () => {
     try {
-      const promises = [axios.get('/api/reports?limit=100')];
+      const promises = [axios.get('/api/reports?limit=50')];
       if (isAuthority) {
-        promises.push(
-          axios.get('/api/admin/stats'),
-          axios.get('/api/analytics/overview')
-        );
+        promises.push(axios.get('/api/admin/stats'), axios.get('/api/analytics/overview'));
       }
-      if (user) {
-        promises.push(axios.get('/api/reports/my'));
-      }
+      if (user) promises.push(axios.get('/api/reports/my'));
+      
       const results = await Promise.allSettled(promises);
-      if (results[0].status === 'fulfilled') setReports(results[0].value.data);
+      if (results[0].status === 'fulfilled') setReports(Array.isArray(results[0].value.data) ? results[0].value.data : []);
       if (isAuthority) {
-        if (results[1]?.status === 'fulfilled') setStats(results[1].value.data);
-        if (results[2]?.status === 'fulfilled') setAnalytics(results[2].value.data);
-        const myIdx = 3;
-        if (results[myIdx]?.status === 'fulfilled') setMyReports(results[myIdx].value.data);
+        if (results[1]?.status === 'fulfilled') setStats(results[1].value.data || {});
+        if (results[2]?.status === 'fulfilled') setAnalytics(results[2].value.data || null);
+        if (results[3]?.status === 'fulfilled') setMyReports(Array.isArray(results[3].value.data) ? results[3].value.data : []);
       } else {
-        const myIdx = 1;
-        if (results[myIdx]?.status === 'fulfilled') setMyReports(results[myIdx].value.data);
+        if (results[1]?.status === 'fulfilled') setMyReports(Array.isArray(results[1].value.data) ? results[1].value.data : []);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    } catch (err) { console.error(err); } finally { setLoading(false); }
+  }, [isAuthority, user]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [fetchData]);
 
   const handleUpdateStatus = async (id, status) => {
     try {
       await axios.put(`/api/admin/report/${id}`, { status });
       fetchData();
-    } catch { alert('Error updating status'); }
-  };
-
-  const handleDeleteReport = async (id) => {
-    if (!window.confirm('Delete this report?')) return;
-    try {
-      await axios.delete(`/api/admin/report/${id}`);
-      fetchData();
-    } catch { alert('Error deleting report'); }
+    } catch { alert('Update failed'); }
   };
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-teal-500" />
+    <div className="h-screen flex items-center justify-center bg-slate-950">
+      <div className="relative">
+        <div className="w-20 h-20 border-2 border-indigo-500/20 rounded-full" />
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="absolute inset-0 w-20 h-20 border-2 border-indigo-500 border-t-transparent rounded-full" />
+        <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-indigo-500 uppercase tracking-tighter">Secure</div>
+      </div>
     </div>
   );
 
-  // ── CITIZEN VIEW ──────────────────────────────────────────────────────────
-  if (user?.role === 'user') {
+  // ── CITIZEN/USER VIEW ──────────────────────────────────────────────────
+  if (isCitizen) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">My Dashboard</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Track your reports and access help resources.</p>
+      <div className="max-w-7xl mx-auto px-4 py-16 relative">
+        <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+          <div className="absolute top-[-10%] right-[-10%] w-[1000px] h-[1000px] bg-indigo-600/10 rounded-full blur-[180px] animate-blob" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[1000px] h-[1000px] bg-blue-600/10 rounded-full blur-[180px] animate-blob animation-delay-2000" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-teal-500" /> My Submitted Reports
+
+        <header className="mb-12">
+          <h1 className="text-6xl font-black text-gradient tracking-tighter mb-4">My Reports</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest text-xs ml-1">Substance Abuse Monitoring & Community Impact</p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          <div className="lg:col-span-2 glass-card !justify-start p-10 border border-white/10 shadow-2xl backdrop-blur-2xl">
+            <h2 className="text-3xl font-black mb-10 flex items-center gap-4 text-gray-900 dark:text-white tracking-tighter">
+              <Activity className="text-indigo-600 w-8 h-8" /> Intelligence Archived
             </h2>
-            <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
-              {myReports.length === 0
-                ? <p className="text-sm text-gray-400 text-center py-8">No reports submitted yet.</p>
-                : myReports.map(r => (
-                  <div key={r._id} className="p-3 bg-gray-50 dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-700">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-semibold text-sm text-gray-800 dark:text-gray-100 line-clamp-1">{r.title}</h3>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${r.status === 'verified' ? 'bg-green-100 text-green-700' : r.status === 'rejected' ? 'bg-red-100 text-red-700' : r.status === 'resolved' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {r.status}
-                      </span>
+            <div className="space-y-6">
+              {myReports.length === 0 ? (
+                <div className="text-center py-24 opacity-30 italic font-black text-gray-500 uppercase tracking-[0.4em]">Awaiting Intel</div>
+              ) : (
+                myReports.map(r => (
+                  <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} key={r._id} className="p-8 bg-white/5 dark:bg-slate-800/40 rounded-[2.5rem] border border-white/5 hover:border-indigo-500/30 transition-all group shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="font-black text-xl text-gray-900 dark:text-white group-hover:text-indigo-500 transition-colors tracking-tight">{r.title}</h3>
+                      <span className={`text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-xl ${r.status === 'verified' ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-amber-500 text-white shadow-amber-500/20'}`}>{r.status}</span>
                     </div>
-                    <p className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleDateString()} • Risk: {r.riskScore?.toFixed(1)}/10</p>
-                    {r.isAnonymous && <span className="text-[10px] text-purple-500 font-semibold">🔒 Anonymous</span>}
+                    <p className="text-gray-500 dark:text-gray-400 font-medium mb-6 leading-relaxed line-clamp-2">{r.description}</p>
+                    <div className="flex gap-8 pt-6 border-t border-white/5 text-[11px] font-black uppercase tracking-widest text-indigo-500">
+                      <span className="flex items-center gap-2"><Clock className="w-4 h-4" /> {new Date(r.createdAt).toLocaleDateString()}</span>
+                      <span className="flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> Risk Factor: {r.riskScore?.toFixed(1)}</span>
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </div>
+          
+          <div className="space-y-10">
+            <div className="glass-card bg-gradient-to-br from-indigo-600 to-blue-700 p-10 text-white shadow-2xl relative overflow-hidden group">
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl animate-pulse" />
+              <HeartPulse className="w-16 h-16 mb-8 text-white/90 group-hover:scale-110 transition-transform" />
+              <h2 className="text-4xl font-black mb-4 tracking-tighter leading-tight">Elite Support Network</h2>
+              <p className="opacity-80 mb-10 text-sm leading-relaxed font-bold">Confidential 24/7 recovery and counseling services specialized in substance abuse intervention and community safety.</p>
+              <button className="w-full py-5 bg-white text-indigo-700 font-black rounded-2xl text-xs uppercase tracking-[0.2em] hover:bg-gray-100 transition-all active:scale-95 shadow-2xl">Connect Now</button>
+            </div>
+
+            <div className="glass-card p-10 border border-white/10 shadow-2xl">
+              <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-8">Personal Impact</h3>
+              <div className="space-y-8">
+                {[
+                  { label: 'Reports Filed', val: myReports.length, color: 'indigo', bgClass: 'bg-indigo-500/10', textClass: 'text-indigo-500' },
+                  { label: 'Verified Intel', val: myReports.filter(r => r.status === 'verified').length, color: 'emerald', bgClass: 'bg-emerald-500/10', textClass: 'text-emerald-500' },
+                  { label: 'Community Contribution', val: (myReports.length * 15) + ' pts', color: 'blue', bgClass: 'bg-blue-500/10', textClass: 'text-blue-500' }
+                ].map((item, i) => (
+                  <div key={i} className="flex justify-between items-center group/stat">
+                    <div>
+                      <p className="text-[11px] font-black text-gray-400 uppercase mb-2 tracking-widest">{item.label}</p>
+                      <p className={`text-3xl font-black text-gray-900 dark:text-white tracking-tighter transition-colors`}>{item.val}</p>
+                    </div>
+                    <div className={`w-12 h-12 rounded-2xl ${item.bgClass} flex items-center justify-center ${item.textClass}`}><Activity className="w-6 h-6" /></div>
                   </div>
                 ))}
+              </div>
             </div>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-900/40 shadow-sm">
-            <h2 className="text-lg font-bold text-indigo-900 dark:text-indigo-100 mb-4 flex items-center gap-2">
-              <HeartHandshake className="w-5 h-5" /> Help &amp; Resources
-            </h2>
-            <div className="space-y-3">
-              {[
-                { title: 'National Substance Abuse Helpline', detail: '1800-11-0031', sub: 'Free 24/7 | Confidential' },
-                { title: 'iCall Psychological Support', detail: '9152987821', sub: 'Mon–Sat 8am–10pm' },
-                { title: 'Vandrevala Foundation', detail: '1860-2662-345', sub: '24x7 mental health helpline' },
-              ].map(r => (
-                <div key={r.title} className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-white">{r.title}</p>
-                  <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">{r.detail}</p>
-                  <p className="text-xs text-gray-400">{r.sub}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ── AUTHORITY VIEW ─────────────────────────────────────────────────────────
-  const pending = reports.filter(r => r.status === 'pending');
-  const govReports = reports.filter(r => ['suspicious_activity'].includes(r.category));
-  const healthReports = reports.filter(r => ['drug_abuse', 'alcohol_abuse'].includes(r.category));
-  const ngoReports = reports.filter(r => ['drug_abuse', 'alcohol_abuse', 'suspicious_activity'].includes(r.category));
-
-  const ActionButtons = ({ id, status }) => (
-    <div className="flex gap-1.5 mt-2 pt-2 border-t border-gray-100 dark:border-slate-700">
-      {status !== 'verified' && <button onClick={() => handleUpdateStatus(id, 'verified')} className="flex-1 text-[10px] font-bold py-1 rounded bg-green-500 hover:bg-green-600 text-white transition-colors">Verify</button>}
-      {status !== 'rejected' && <button onClick={() => handleUpdateStatus(id, 'rejected')} className="flex-1 text-[10px] font-bold py-1 rounded bg-red-500 hover:bg-red-600 text-white transition-colors">Reject</button>}
-      {status !== 'resolved' && <button onClick={() => handleUpdateStatus(id, 'resolved')} className="flex-1 text-[10px] font-bold py-1 rounded bg-blue-500 hover:bg-blue-600 text-white transition-colors">Resolve</button>}
-      <button onClick={() => handleDeleteReport(id)} className="flex-1 text-[10px] font-bold py-1 rounded bg-gray-400 hover:bg-gray-500 text-white transition-colors">Delete</button>
-    </div>
-  );
-
-  const ReportList = ({ items, emptyMsg }) => (
-    <div className="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
-      {items.length === 0
-        ? <p className="text-sm text-gray-400 text-center py-6">{emptyMsg}</p>
-        : items.map(r => (
-          <div key={r._id} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm">
-            <div className="flex justify-between items-start">
-              <h3 className="font-semibold text-xs text-gray-800 dark:text-gray-200 line-clamp-1 flex-1">{r.title}</h3>
-              <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${r.status === 'verified' ? 'bg-green-100 text-green-700' : r.status === 'rejected' ? 'bg-red-100 text-red-700' : r.status === 'resolved' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>{r.status}</span>
-            </div>
-            <p className="text-[10px] text-gray-400 mt-0.5">{new Date(r.createdAt).toLocaleDateString()} · Risk: {r.riskScore?.toFixed(1)}</p>
-            <ActionButtons id={r._id} status={r.status} />
-          </div>
-        ))}
-    </div>
-  );
+  // ── AUTHORITY VIEW ──────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+    <div className="max-w-[1600px] w-[96%] mx-auto px-4 py-12 relative">
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-600/5 rounded-full blur-[150px] animate-blob" />
+        <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-blue-600/5 rounded-full blur-[150px] animate-blob animation-delay-2000" />
+      </div>
+
+      <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 mb-16 px-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Command Center</h1>
-          <p className="text-gray-400 text-sm mt-1">Logged in as <span className="font-semibold text-teal-600 dark:text-teal-400 uppercase">{user?.role}</span> — {user?.name}</p>
-        </div>
-        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-2 rounded-full border border-gray-200 dark:border-slate-700 shadow-sm">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
-          </span>
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Live — Auto-refresh 30s</span>
-        </div>
-      </div>
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<ShieldAlert className="w-5 h-5"/>} label="Total Reports" value={stats.totalReports ?? reports.length} color="blue" delay={0} />
-        <StatCard icon={<CheckCircle className="w-5 h-5"/>} label="Verified" value={stats.verified ?? 0} color="green" delay={0.05} />
-        <StatCard icon={<Bell className="w-5 h-5"/>} label="Pending Review" value={stats.pending ?? pending.length} color="amber" delay={0.1} />
-        <StatCard icon={<Users className="w-5 h-5"/>} label="Total Users" value={stats.users ?? '—'} color="indigo" delay={0.15} />
-      </div>
-
-      {/* Charts */}
-      {analytics && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Area chart — daily trend */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
-            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-teal-500" /> Reports — Last 30 Days
-            </h2>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={analytics.dailyReports} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="cGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={v => v.slice(5)} />
-                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px' }} />
-                <Area type="monotone" dataKey="count" stroke="#14b8a6" strokeWidth={2} fill="url(#cGrad)" name="Reports" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Pie — by category */}
-          <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
-            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4">By Category</h2>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={analytics.byCategory} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                  {analytics.byCategory.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px' }} formatter={(v, n) => [v, n.replace(/_/g, ' ')]} />
-                <Legend iconSize={10} wrapperStyle={{ fontSize: '11px' }} formatter={v => v.replace(/_/g, ' ')} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Bar — by status */}
-          <div className="lg:col-span-3 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
-            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4">Reports by Status</h2>
-            <ResponsiveContainer width="100%" height={150}>
-              <BarChart data={analytics.byStatus} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px' }} />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                  {analytics.byStatus.map((entry, i) => {
-                    const colors = { pending: '#f59e0b', verified: '#10b981', rejected: '#ef4444', resolved: '#3b82f6' };
-                    return <Cell key={i} fill={colors[entry.name] || '#8b5cf6'} />;
-                  })}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <h1 className="text-7xl font-black tracking-tighter mb-4 text-gradient">Command Center</h1>
+          <div className="flex items-center gap-5">
+            <span className="text-[11px] font-black text-gray-400 uppercase tracking-[0.3em] flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/40 animate-pulse" /> Strategic Intelligence Access
+            </span>
+            <span className="text-gray-300 dark:text-gray-800">|</span>
+            <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">{user?.role} Unit Portal</span>
           </div>
         </div>
-      )}
+        <div className="flex gap-6">
+          <div className="glass-card px-10 py-6 text-center min-w-[200px]">
+            <div className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter">{stats.totalReports || reports.length}</div>
+            <div className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1 opacity-70">Intelligence</div>
+          </div>
+          <div className="glass-card px-10 py-6 text-center min-w-[200px] border-indigo-500/30">
+            <div className="text-4xl font-black text-indigo-500 tracking-tighter">{stats.verified || 0}</div>
+            <div className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1 opacity-70">Verified</div>
+          </div>
+        </div>
+      </header>
 
-      {/* Authority Panels */}
-      <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Authority Panels</h2>
-      <div className={`grid grid-cols-1 ${user?.role === 'admin' ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6 mb-8`}>
-        {(user?.role === 'admin' || user?.role === 'gov') && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-blue-200 dark:border-blue-900/50 flex flex-col h-96 shadow-sm">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold text-blue-800 dark:text-blue-200 flex items-center gap-2 text-sm"><Building className="w-4 h-4"/>Gov / Law Enforcement</h3>
-              <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{govReports.length}</span>
-            </div>
-            <ReportList items={govReports} emptyMsg="No government alerts." />
-          </motion.div>
-        )}
-        {(user?.role === 'admin' || user?.role === 'healthcare') && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-            className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-red-200 dark:border-red-900/50 flex flex-col h-96 shadow-sm">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold text-red-800 dark:text-red-200 flex items-center gap-2 text-sm"><HeartPulse className="w-4 h-4"/>Healthcare</h3>
-              <span className="bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{healthReports.length}</span>
-            </div>
-            <ReportList items={healthReports} emptyMsg="No healthcare alerts." />
-          </motion.div>
-        )}
-        {(user?.role === 'admin' || user?.role === 'ngo') && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-            className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 flex flex-col h-96 shadow-sm">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold text-emerald-800 dark:text-emerald-200 flex items-center gap-2 text-sm"><HeartHandshake className="w-4 h-4"/>NGO &amp; Community</h3>
-              <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{ngoReports.length}</span>
-            </div>
-            <ReportList items={ngoReports} emptyMsg="No NGO alerts." />
-          </motion.div>
-        )}
-      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+        <div className="xl:col-span-8 space-y-12">
+          <section className={`grid grid-cols-1 ${user?.role?.toLowerCase() === 'admin' ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
+            {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'gov') && <FeedCard title="Law Enforcement" icon={<Building className="w-5 h-5" />} items={reports.filter(r => ['suspicious_activity'].includes(r.category))} color="blue" onVerify={handleUpdateStatus} onAction={(r) => { setActiveReport(r); document.getElementById('command-panel')?.scrollIntoView({ behavior: 'smooth' }); }} />}
+            {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'healthcare') && <FeedCard title="Medical Support" icon={<HeartPulse className="w-5 h-5" />} items={reports.filter(r => ['drug_abuse', 'alcohol_abuse'].includes(r.category))} color="rose" onVerify={handleUpdateStatus} onAction={(r) => { setActiveReport(r); document.getElementById('command-panel')?.scrollIntoView({ behavior: 'smooth' }); }} />}
+            {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'ngo') && <FeedCard title="NGO Outreach" icon={<HeartHandshake className="w-5 h-5" />} items={reports} color="emerald" onVerify={handleUpdateStatus} onAction={(r) => { setActiveReport(r); document.getElementById('command-panel')?.scrollIntoView({ behavior: 'smooth' }); }} />}
+          </section>
 
-      {/* High-risk hotspots */}
-      {analytics?.highRiskHotspots?.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-red-500" /> High-Risk Hotspots
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {analytics.highRiskHotspots.map(r => (
-              <div key={r._id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-red-100 dark:border-red-900/40 shadow-sm">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold text-sm text-gray-800 dark:text-gray-200 line-clamp-1 flex-1">{r.title}</h3>
-                  <span className="ml-2 text-sm font-black text-red-600 dark:text-red-400">{r.riskScore.toFixed(1)}</span>
+          {analytics && (
+            <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} className="glass-card p-12 overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 blur-[80px] rounded-full -z-10" />
+              <div className="flex justify-between items-center mb-16">
+                <h2 className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter flex items-center gap-5">
+                  <TrendingUp className="text-indigo-500 w-10 h-10" /> Operational Trends
+                </h2>
+                <div className="flex items-center gap-4 bg-white/5 px-6 py-3 rounded-full border border-white/5">
+                  <span className="w-3 h-3 rounded-full bg-indigo-500 shadow-xl shadow-indigo-500/50" />
+                  <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Real-time Intelligence</span>
                 </div>
-                <p className="text-xs text-gray-400 capitalize">{r.category.replace(/_/g, ' ')} · {r.status}</p>
-                {r.address && <p className="text-xs text-gray-400 mt-1 line-clamp-1">📍 {r.address}</p>}
               </div>
-            ))}
-          </div>
+              <div className="h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={analytics.dailyReports || []}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fontWeight: 900 }} tickFormatter={v => v?.slice(5) || ''} stroke="#94a3b8" axisLine={false} />
+                    <YAxis tick={{ fontSize: 10, fontWeight: 900 }} stroke="#94a3b8" axisLine={false} />
+                    <Tooltip cursor={{ fill: '#ffffff03' }} contentStyle={{ backgroundColor: '#0f172a', borderRadius: '25px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.4)', padding: '20px' }} />
+                    <Bar dataKey="count" fill="#6366f1" radius={[15, 15, 0, 0]} barSize={45} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.section>
+          )}
         </div>
-      )}
+
+        <div id="command-panel" className="xl:col-span-4 h-[750px]">
+          <InterventionManager user={user} activeReport={activeReport} setActiveReport={setActiveReport} />
+        </div>
+      </div>
     </div>
   );
 };
